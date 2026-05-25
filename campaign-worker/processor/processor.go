@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/ilovecroissant/ai-marketing-engine/campaign-worker/crawler"
+	"github.com/ilovecroissant/ai-marketing-engine/campaign-worker/ranker"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -73,8 +75,46 @@ func HandleCampaign(ctx context.Context, msg kafka.Message) error {
 	log.Printf("Campaign %s: crawled %d/%d URLs successfully",
 		job.CampaignID, succeeded, len(urls))
 
-	// TODO Phase 6: send results to ranking engine
-	// TODO Phase 7: send results to content generation
+	// Phase 6: rank and deduplicate crawled content
+	rankerURL := os.Getenv("RANKER_URL")
+	if rankerURL == "" {
+		rankerURL = "http://localhost:8082"
+	}
+	rc := ranker.New(rankerURL)
 
+	for _, r := range results {
+		if r.Error != nil {
+			continue
+		}
+
+		// Extract top keywords from the crawled page
+		kws, err := rc.ExtractKeywords(r.Body, 10)
+		if err != nil {
+			log.Printf("keyword extraction failed for %s: %v", r.URL, err)
+			continue
+		}
+		kwTerms := make([]string, len(kws))
+		for i, k := range kws {
+			kwTerms[i] = k.Term
+		}
+
+		// Score the content against extracted keywords
+		score, err := rc.RankContent(r.Body, kwTerms)
+		if err != nil {
+			log.Printf("ranking failed for %s: %v", r.URL, err)
+			continue
+		}
+		log.Printf("Ranked %s — total=%.2f seo=%.2f engagement=%.2f readability=%.2f keywords=%v",
+			r.URL, score.Total, score.SEO, score.Engagement, score.Readability, kwTerms[:min(5, len(kwTerms))])
+	}
+
+	// TODO Phase 7: send ranked results to content generation
 	return nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
