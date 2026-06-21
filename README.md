@@ -4,7 +4,7 @@ A distributed AI content-generation platform that automates competitor research,
 
 Built as a hands-on learning project for backend / distributed-systems roles — Go services orchestrate a Kafka-decoupled pipeline, a C++ ranking engine handles the CPU-bound text math, and a RAG layer grounds LLM output in real crawled data.
 
-> **Status:** Phase 3 / 9 — API Gateway in progress. Infrastructure and DB schema are up.
+> **Status:** Phase 6 / 9 — API Gateway in progress. Infrastructure and DB schema are up.
 
 ---
 
